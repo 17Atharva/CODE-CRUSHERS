@@ -1,0 +1,145 @@
+
+#include <WiFi.h>
+#include "ThingSpeak.h"
+
+#define CAMERA_MODEL_AI_THINKER 
+
+
+const char* ssid = "POCO_ESP32";   
+const char* password = "123456789";   
+
+WiFiClient  client;
+
+unsigned long myChannelNumber = 1;
+const char * myWriteAPIKey = "851MXCIDQL280PDT";
+
+// Timer variables
+unsigned long lastTime = 0;
+unsigned long timerDelay = 30000;
+
+// defines variables
+long duration; // variable for the duration of sound wave travel
+int distance; // variable for the distance measurement
+int sensorValue = 0;
+
+int dur ; // For Second Ultrasonic
+int dist; // For Second Ultrasonic
+
+#define echoPin 2 // attach pin 2 Arduino to pin Echo of HC-SR04
+#define trigPin 15 //attach pin 15 Arduino to pin Trig of HC-SR04
+
+#define MQ2 13 
+#define echo 12
+#define trig 16
+
+
+void setup() {
+  Serial.begin(115200);  //Initialize serial rate
+  
+  
+  WiFi.mode(WIFI_STA);   
+
+// IR Sensors
+   pinMode(trigPin, OUTPUT); // Sets the trigPin as an OUTPUT
+   pinMode(echoPin, INPUT); // Sets the echoPin as an INPUT
+  
+   pinMode(trig, OUTPUT); // Sets the trigPin as an OUTPUT
+   pinMode(echo, INPUT); // Sets the echoPin as an INPUT
+
+// MQ2 Gas Sensor
+   pinMode( MQ2, INPUT);
+   
+   
+  
+  ThingSpeak.begin(client);  // Initialize ThingSpeak
+}
+
+void loop() {
+  if ((millis() - lastTime) > timerDelay) {
+    
+    // Connect or reconnect to WiFi
+    if(WiFi.status() != WL_CONNECTED){
+      Serial.print("Attempting to connect");
+      while(WiFi.status() != WL_CONNECTED){
+        WiFi.begin(ssid, password); 
+        delay(5000);     
+      } 
+      Serial.println("\nConnected.");
+    }
+
+    
+  // Code for Toilet Paper Status 
+  
+  // Clears the trigPin condition
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  // Sets the trigPin HIGH (ACTIVE) for 10 microseconds
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  duration = pulseIn(echoPin, HIGH);
+  // Calculating the distance
+  distance = duration * 0.034 / 2; // Speed of sound wave divided by 2 (go and back)
+  // Displays the distance on the Serial Monitor
+  Serial.print("Distance (PAPER): ");
+  Serial.print(distance);
+  Serial.println(" cm");
+
+
+   // Code for Vacancy Status
+  
+  // Clears the trig condition
+  digitalWrite(trig, LOW);
+  delayMicroseconds(2);
+  // Sets the trigPin HIGH (ACTIVE) for 10 microseconds
+  digitalWrite(trig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig, LOW);
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  duration = pulseIn(echo, HIGH);
+  // Calculating the distance
+  dist = dur * 0.034 / 2; // Speed of sound wave divided by 2 (go and back)
+  // Displays the distance on the Serial Monitor
+  Serial.print("Distance (VACANCY): ");
+  Serial.print(dist);
+  Serial.println(" cm");
+
+
+ // MQ2
+
+ sensorValue = analogRead(MQ2); // read analog input pin 13
+ 
+  Serial.println(sensorValue);
+
+  if (sensorValue > 600)
+  {
+   Serial.println("Gas Detected");
+  }
+
+  else
+  {
+    Serial.println("Gas Not Detected");
+  }
+
+  
+  
+
+    // set the fields with the values
+    ThingSpeak.setField(1, distance);
+    ThingSpeak.setField(2, dist);
+    ThingSpeak.setField(3, sensorValue);
+  
+    
+    
+    int x = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+
+    if(x == 200){
+      Serial.println("Channel update successful.");
+    }
+    else{
+      Serial.println("Problem updating channel. HTTP error code " + String(x));
+    }
+    lastTime = millis();
+  }
+}
