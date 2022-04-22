@@ -1,0 +1,117 @@
+
+#include <WiFi.h>
+#include "ThingSpeak.h"
+
+#define CAMERA_MODEL_AI_THINKER // Has PSRAM
+
+
+const char* ssid = "POCO_ESP32";   
+const char* password = "123456789";   
+
+WiFiClient  client;
+
+unsigned long myChannelNumber = 2;
+const char * myWriteAPIKey = "CCNI42LGZ1IYRH58";
+
+// Timer variables
+unsigned long lastTime = 0;
+unsigned long timerDelay = 30000;
+
+
+// defines variables
+long duration; // variable for the duration of sound wave travel
+int distance; // variable for the distance measurement
+int sensorValue;
+int buttonState = 1; //reads pushbutton status
+
+#define echoPin 2 // attach pin 2 Arduino to pin Echo of HC-SR04
+#define trigPin 15 //attach pin 15 Arduino to pin Trig of HC-SR04
+#define switch 16 // 
+#define ammonia 13 // 
+
+
+void setup() {
+  Serial.begin(115200);  //Initialize serial
+  
+  
+  WiFi.mode(WIFI_STA);   
+
+// IR Sensor
+   pinMode(trigPin, OUTPUT); // Sets the trigPin as an OUTPUT
+   pinMode(echoPin, INPUT); // Sets the echoPin as an INPUT
+// Water Level Sensor
+   pinMode(switch, INPUT_PULLUP);   
+// Smoke Sensor
+   pinMode( ammonia, INPUT);
+   
+   
+  
+  ThingSpeak.begin(client);  // Initialize ThingSpeak
+}
+
+void loop() {
+  if ((millis() - lastTime) > timerDelay) {
+    
+    // Connect or reconnect to WiFi
+    if(WiFi.status() != WL_CONNECTED){
+      Serial.print("Attempting to connect");
+      while(WiFi.status() != WL_CONNECTED){
+        WiFi.begin(ssid, password); 
+        delay(5000);     
+      } 
+      Serial.println("\nConnected.");
+    }
+
+    
+  // Code for Toilet Paper Status 
+  
+  // Clears the trigPin condition
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  // Sets the trigPin HIGH (ACTIVE) for 10 microseconds
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  duration = pulseIn(echoPin, HIGH);
+  // Calculating the distance
+  distance = duration * 0.034 / 2; // Speed of sound wave divided by 2 (go and back)
+  // Displays the distance on the Serial Monitor
+  Serial.print("Distance: ");
+  Serial.print(distance);
+  Serial.println(" cm");
+
+  // Water Level
+  buttonState = digitalRead(switch);
+  if (buttonState == HIGH) {
+    Serial.println("SOAP LEVEL - HIGH");
+  }
+  else {
+    Serial.println("SOAP LEVEL - LOW");
+  }
+ 
+ // Smoking 
+
+ sensorValue = digitalRead(ammonia); // read analog input pin 13
+ Serial.println(sensorValue, DEC); // prints the value read
+  
+  
+
+    // set the fields with the values
+    ThingSpeak.setField(1, distance);
+    ThingSpeak.setField(2, switch);
+    ThingSpeak.setField(3, sensorValue);
+   // ThingSpeak.setField(3, pressure);
+    
+    
+    int x = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+
+    if(x == 200){
+      Serial.println("Channel update successful.");
+    }
+    else{
+      Serial.println("Problem updating channel. HTTP error code " + String(x));
+    }
+    lastTime = millis();
+  }
+}
